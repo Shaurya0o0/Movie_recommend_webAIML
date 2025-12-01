@@ -10,11 +10,15 @@ export function RecommendationProvider({ children }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Use env backend URL if available, else fallback to localhost
+  const backendUrl =
+    import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+
   const getRecommendations = async (movieTitle) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("http://localhost:5000/recommend", {
+      const res = await fetch(`${backendUrl}/recommend`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ movie: movieTitle }),
@@ -49,7 +53,15 @@ export function RecommendationProvider({ children }) {
 
   return (
     <RecommendationContext.Provider
-      value={{ movie, moviePoster, recommendations, getRecommendations, loadDefaultMovies, loading, error }}
+      value={{
+        movie,
+        moviePoster,
+        recommendations,
+        getRecommendations,
+        loadDefaultMovies,
+        loading,
+        error,
+      }}
     >
       {children}
     </RecommendationContext.Provider>

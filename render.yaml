@@ -2,7 +2,7 @@ services:
   # Backend Service
   - type: web
     name: movie-backend
-    runtime: node         # instead of env: node
+    runtime: node
     branch: main
     rootDir: backend
     buildCommand: |
@@ -18,12 +18,11 @@ services:
   # Frontend Service (Static)
   - type: web
     name: movie-frontend
-    runtime: static       # <-- important
+    runtime: static
     branch: main
     rootDir: client
     buildCommand: "npm install && npm run build"
     staticPublishPath: "dist"
-    plan: free
     buildFilter:
       paths:
         - client/**

@@ -7,13 +7,13 @@ services:
     rootDir: backend
     buildCommand: |
       npm install
-      pip3 install -r ../Model/artifacts/requirements.txt
+      pip3 install -r requirements.txt
     startCommand: "node server.js"
     plan: free
     buildFilter:
       paths:
         - backend/**
-        - Model/**
+        - backend/Model/**
 
   # Frontend Service (Static)
   - type: web

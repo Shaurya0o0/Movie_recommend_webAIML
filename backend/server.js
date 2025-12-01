@@ -8,7 +8,6 @@ import os from "os";
 
 dotenv.config();
 
-// Fix __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -21,59 +20,79 @@ app.get("/", (req, res) => {
   res.send("<h1>Backend is running successfully</h1>");
 });
 
+// Recommend route with try/catch
 app.post("/recommend", (req, res) => {
-  const movie = req.body.movie;
+  try {
+    const movie = req.body.movie;
 
-  // Correct path to Python script INSIDE the backend folder
-  const scriptPath = path.resolve(__dirname, "./Model/artifacts/recommender.py");
-
-  // auto-select python
-  let pythonPath;
-
-  if (os.platform() === "win32") {
-    // WINDOWS FIX (You forgot '=' earlier)
-    pythonPath = path.resolve(__dirname, "../venv/Scripts/python.exe");
-  } else {
-    pythonPath = "python3"; // Render/Linux
-  }
-
-
-  // Spawn the Python process
-  const py = spawn(pythonPath, [scriptPath, movie]);
-
-  let output = "";
-
-  py.stdout.on("data", (data) => {
-    output += data.toString();
-  });
-
-  py.stderr.on("data", (err) => {
-    console.error("Python error:", err.toString());
-  });
-
-  py.on("close", () => {
-    const clean = output.trim();
-
-    if (!clean) {
-      return res.json({
-        movie,
-        recommendations: ["No recommendations found"]
-      });
+    if (!movie) {
+      return res.status(400).json({ error: "Movie name is required" });
     }
 
-    const lines = clean
-      .split("\n")
-      .map((s) => s.trim())
-      .filter(Boolean);
+    // Python script path
+    const scriptPath = path.resolve(__dirname, "./Model/artifacts/recommender.py");
 
-    const movieName = lines[0] || movie;
-    const recommendations = lines.slice(1);
+    // Determine Python
+    let pythonPath;
+    if (os.platform() === "win32") {
+      pythonPath = path.resolve(__dirname, "../venv/Scripts/python.exe");
+    } else {
+      pythonPath = "python3"; // Linux (Render)
+    }
 
-    res.json({
-      movie: movieName,
-      recommendations: recommendations.length ? recommendations : ["No recommendations"]
+    // Spawn Python
+    const py = spawn(pythonPath, [scriptPath, movie]);
+
+    let output = "";
+    let errorOutput = "";
+
+    py.stdout.on("data", (data) => {
+      output += data.toString();
     });
-  });
+
+    py.stderr.on("data", (err) => {
+      errorOutput += err.toString();
+    });
+
+    // Timeout safety (10s)
+    const timeout = setTimeout(() => {
+      py.kill();
+      return res.status(500).json({ error: "Python script timed out" });
+    }, 10000);
+
+    py.on("close", (code) => {
+      clearTimeout(timeout);
+
+      if (errorOutput) {
+        console.error("Python error:", errorOutput);
+      }
+
+      const clean = output.trim();
+
+      if (!clean) {
+        return res.json({
+          movie,
+          recommendations: ["No recommendations found"]
+        });
+      }
+
+      const lines = clean
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      const movieName = lines[0] || movie;
+      const recommendations = lines.slice(1);
+
+      res.json({
+        movie: movieName,
+        recommendations: recommendations.length ? recommendations : ["No recommendations"]
+      });
+    });
+  } catch (err) {
+    console.error("Unexpected server error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // Server start
